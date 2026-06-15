@@ -1,0 +1,2004 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大富豪 - リアルタイムカードゲーム</title>
+  <meta name="description" content="ブラウザだけで遊べるリアルタイム多人数カードゲーム「大富豪」。部屋を作成してURLを共有するだけで最大6人が参加できます。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ─────────────────────────────────────
+       デザインシステム / カラーパレット
+    ───────────────────────────────────── */
+    :root {
+      --bg-deep:       #0a2318;
+      --bg-table:      #0d3d2a;
+      --bg-felt:       #145236;
+      --bg-card:       #f8f4ec;
+      --bg-card-back:  #1a3a8a;
+      --gold:          #c9a84c;
+      --gold-light:    #f0d080;
+      --gold-dark:     #8a6a20;
+      --cream:         #f5f0e8;
+      --red-card:      #c0392b;
+      --black-card:    #1a1a2e;
+      --text-light:    #e8e0cc;
+      --text-muted:    #9a8f7a;
+      --text-gold:     #c9a84c;
+      --accent-teal:   #2ec4b6;
+      --accent-purple: #9b59b6;
+      --success:       #27ae60;
+      --danger:        #e74c3c;
+      --warn:          #f39c12;
+      --shadow-card:   0 4px 12px rgba(0,0,0,0.5);
+      --shadow-glow:   0 0 20px rgba(201,168,76,0.4);
+      --radius-card:   10px;
+      --radius-lg:     16px;
+      --transition:    0.2s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-light);
+      overflow: hidden;
+    }
+
+    /* ─────────────────────────────────────
+       ユーティリティ
+    ───────────────────────────────────── */
+    .hidden { display: none !important; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .gap-4 { gap: 16px; }
+    .w-full { width: 100%; }
+    .text-center { text-align: center; }
+    .text-gold { color: var(--gold); }
+    .text-muted { color: var(--text-muted); }
+    .text-sm { font-size: 0.85rem; }
+    .font-bold { font-weight: 700; }
+
+    /* ─────────────────────────────────────
+       ボタン
+    ───────────────────────────────────── */
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      letter-spacing: 0.04em;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-gold {
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      color: #1a0e00;
+      box-shadow: 0 4px 16px rgba(201,168,76,0.35);
+    }
+    .btn-gold:hover:not(:disabled) {
+      background: linear-gradient(135deg, var(--gold-light), var(--gold));
+      box-shadow: 0 6px 24px rgba(201,168,76,0.5);
+      transform: translateY(-2px);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-light);
+      border: 1.5px solid rgba(255,255,255,0.25);
+    }
+    .btn-outline:hover:not(:disabled) {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(201,168,76,0.08);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: #fff;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: linear-gradient(135deg, #ff6b6b, #e74c3c);
+      transform: translateY(-2px);
+    }
+
+    .btn-teal {
+      background: linear-gradient(135deg, #2ec4b6, #1a9e92);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(46,196,182,0.35);
+    }
+    .btn-teal:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(46,196,182,0.5);
+    }
+
+    .btn-sm { padding: 8px 16px; font-size: 0.85rem; }
+    .btn-lg { padding: 16px 32px; font-size: 1.1rem; }
+
+    /* ─────────────────────────────────────
+       入力
+    ───────────────────────────────────── */
+    .input {
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      color: var(--text-light);
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 12px 16px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .input::placeholder { color: var(--text-muted); }
+    .input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.15); }
+
+    /* ─────────────────────────────────────
+       SCREEN: ロビー
+    ───────────────────────────────────── */
+    #screen-lobby {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(ellipse at 20% 80%, rgba(20,82,54,0.6) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(26,58,138,0.3) 0%, transparent 60%),
+        var(--bg-deep);
+      padding: 24px;
+    }
+
+    .lobby-card {
+      background: linear-gradient(145deg, rgba(20,82,54,0.5), rgba(10,35,24,0.8));
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: var(--radius-lg);
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 440px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.08);
+    }
+
+    .lobby-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 3rem;
+      font-weight: 900;
+      text-align: center;
+      background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+      letter-spacing: 0.05em;
+      text-shadow: none;
+      filter: drop-shadow(0 2px 8px rgba(201,168,76,0.4));
+    }
+    .lobby-subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 40px;
+      letter-spacing: 0.06em;
+    }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .join-row { display: flex; gap: 8px; }
+    .join-row .input { flex: 1; }
+
+    /* ─────────────────────────────────────
+       SCREEN: 待機室
+    ───────────────────────────────────── */
+    #screen-waiting {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(20,82,54,0.5) 0%, transparent 70%),
+        var(--bg-deep);
+    }
+
+    .waiting-card {
+      background: linear-gradient(145deg, rgba(20,82,54,0.4), rgba(10,35,24,0.9));
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      width: 100%;
+      max-width: 520px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .waiting-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .room-id-display {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.3em;
+    }
+
+    .copy-url-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: rgba(201,168,76,0.12);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 6px;
+      color: var(--gold);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .copy-url-btn:hover { background: rgba(201,168,76,0.22); }
+
+    .player-list { margin-bottom: 24px; }
+    .player-list-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      transition: background 0.2s;
+    }
+    .player-item.is-me { border-left: 2px solid var(--accent-teal); }
+    .player-item.is-host { border-left: 2px solid var(--gold); }
+    .player-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--bg-felt), var(--bg-card-back));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .player-name { flex: 1; font-weight: 500; }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .badge-host { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+    .badge-you { background: rgba(46,196,182,0.15); color: var(--accent-teal); border: 1px solid rgba(46,196,182,0.3); }
+
+    .rules-section { margin-bottom: 24px; }
+    .rules-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .rule-toggle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+    .rule-toggle.active {
+      background: rgba(201,168,76,0.12);
+      border-color: rgba(201,168,76,0.4);
+      color: var(--gold);
+    }
+    .rule-toggle.active .rule-icon { filter: grayscale(0); }
+    .rule-toggle:disabled { cursor: not-allowed; opacity: 0.5; }
+    .rule-icon { font-size: 1.2rem; }
+
+    /* ─────────────────────────────────────
+       SCREEN: ゲーム
+    ───────────────────────────────────── */
+    #screen-game {
+      height: 100vh;
+      display: grid;
+      /* ★修正: topbar / opponents / field(1fr-中央主当エリア) / action / hand */
+      grid-template-rows: auto auto 1fr auto auto;
+      background:
+        radial-gradient(ellipse at 50% 50%, var(--bg-felt) 0%, var(--bg-table) 60%, var(--bg-deep) 100%);
+      overflow: hidden;
+    }
+
+    /* トップバー */
+    .game-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: rgba(0,0,0,0.3);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+    .topbar-status {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .revolution-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: linear-gradient(135deg, #9b59b6, #6c3483);
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+      animation: pulseBadge 1.5s infinite;
+    }
+    @keyframes pulseBadge {
+      0%, 100% { box-shadow: 0 0 8px rgba(155,89,182,0.5); }
+      50% { box-shadow: 0 0 20px rgba(155,89,182,0.9); }
+    }
+    .eleven-back-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: linear-gradient(135deg, #e67e22, #ca6f1e);
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .turn-display {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--gold-light);
+    }
+    .turn-name {
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    /* 対戦相手エリア */
+    .opponents-area {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+      padding: 12px 20px;
+      flex-wrap: wrap;
+    }
+    .opponent-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .opponent-name {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      max-width: 80px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .opponent-name.is-turn { color: var(--gold); font-weight: 700; }
+    .opponent-cards {
+      display: flex;
+      gap: 3px;
+    }
+    .card-back-mini {
+      width: 22px;
+      height: 32px;
+      border-radius: 3px;
+      background: linear-gradient(135deg, #1a3a8a, #0d1f4a);
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 1px 1px 4px rgba(0,0,0,0.4);
+    }
+    .opponent-rank-badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 700;
+    }
+
+    /* 場のカード */
+    .field-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      position: relative;
+      /* ★修正: 少し上寄りに見せるため下側にパディング */
+      padding-bottom: 30px;
+    }
+    .field-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .field-cards {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+      width: 200px;
+      position: relative;
+    }
+    .field-empty {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      opacity: 0.5;
+      font-style: italic;
+    }
+    .field-player-name {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ★ 自分の手番通知バナー */
+    .my-turn-banner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(135deg, rgba(201,168,76,0.95), rgba(240,208,128,0.95));
+      color: #1a0e00;
+      padding: 10px 28px;
+      border-radius: 99px;
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 500;
+      box-shadow: 0 4px 24px rgba(201,168,76,0.6), 0 0 0 2px rgba(201,168,76,0.3);
+      animation: myTurnPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes myTurnPop {
+      from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+
+    /* アクションボタン */
+    .action-bar {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      padding: 8px 20px;
+    }
+
+    /* 手札エリア */
+    .hand-area {
+      padding: 8px 20px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.2);
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .hand-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .hand-cards {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 100%;
+      padding: 8px 0 4px;
+    }
+
+    /* ─────────────────────────────────────
+       カード
+    ───────────────────────────────────── */
+    .card {
+      width: 64px;
+      height: 96px;
+      border-radius: var(--radius-card);
+      background: var(--bg-card);
+      border: 1px solid rgba(0,0,0,0.12);
+      box-shadow: var(--shadow-card);
+      cursor: pointer;
+      transition: transform var(--transition), box-shadow 0.2s;
+      position: relative;
+      user-select: none;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    .card:hover {
+      transform: translateY(-8px) scale(1.04);
+      box-shadow: 0 16px 32px rgba(0,0,0,0.5);
+      z-index: 2;
+    }
+    .card.selected {
+      transform: translateY(-16px) scale(1.06);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 0 2px var(--gold), var(--shadow-glow);
+      z-index: 3;
+    }
+    .card.selected:hover { transform: translateY(-16px) scale(1.08); }
+
+    /* フィールドのカードは大きめ */
+    .card-field {
+      width: 72px;
+      height: 108px;
+      cursor: default;
+      animation: cardDeal 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .card-field:hover { transform: none; }
+
+    @keyframes cardDeal {
+      from { transform: scale(0.5) translateY(-60px); opacity: 0; }
+      to   { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .card-rank-top {
+      font-size: 1rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .card-suit-top {
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+    .card-center {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+    }
+    .card-rank-bot {
+      font-size: 1rem;
+      font-weight: 900;
+      line-height: 1;
+      transform: rotate(180deg);
+      align-self: flex-end;
+    }
+    .card-suit-bot {
+      font-size: 0.75rem;
+      line-height: 1;
+      transform: rotate(180deg);
+      align-self: flex-end;
+    }
+
+    .card.red { color: var(--red-card); }
+    .card.black { color: var(--black-card); }
+    .card.joker {
+      background: linear-gradient(135deg, #1a1a2e, #2d1b69);
+      color: #fff;
+      font-size: 2rem;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid rgba(155,89,182,0.5);
+    }
+
+    /* ─────────────────────────────────────
+       SCREEN: 結果
+    ───────────────────────────────────── */
+    #screen-result {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse at 50% 20%, rgba(201,168,76,0.15) 0%, transparent 60%),
+        var(--bg-deep);
+    }
+
+    .result-card {
+      background: linear-gradient(145deg, rgba(20,82,54,0.5), rgba(10,35,24,0.9));
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: var(--radius-lg);
+      padding: 40px 48px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    }
+
+    .result-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      text-align: center;
+      color: var(--gold-light);
+      margin-bottom: 28px;
+    }
+
+    .ranking-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      transition: background 0.2s;
+    }
+    .ranking-item.rank-1 {
+      background: linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.05));
+      border: 1px solid rgba(201,168,76,0.3);
+    }
+    .ranking-item.rank-2 {
+      background: linear-gradient(135deg, rgba(192,192,192,0.15), rgba(192,192,192,0.05));
+      border: 1px solid rgba(192,192,192,0.2);
+    }
+    .ranking-item.is-me { outline: 1px solid var(--accent-teal); }
+
+    .rank-emoji { font-size: 1.5rem; width: 32px; text-align: center; }
+    .rank-name-col { flex: 1; }
+    .rank-title { font-size: 0.75rem; color: var(--text-muted); }
+    .rank-player { font-weight: 700; font-size: 1rem; }
+
+    /* ─────────────────────────────────────
+       SCREEN: カード交換
+    ───────────────────────────────────── */
+    #screen-exchange {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse at 50% 20%, rgba(46,196,182,0.1) 0%, transparent 60%),
+        var(--bg-deep);
+    }
+
+    .exchange-card {
+      background: linear-gradient(145deg, rgba(20,82,54,0.5), rgba(10,35,24,0.9));
+      border: 1px solid rgba(46,196,182,0.3);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .exchange-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent-teal);
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .exchange-desc {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 24px;
+    }
+
+    /* ─────────────────────────────────────
+       通知トースト
+    ───────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      max-width: 320px;
+    }
+    .toast-info    { background: rgba(46,196,182,0.9); color: #fff; }
+    .toast-success { background: rgba(39,174,96,0.9); color: #fff; }
+    .toast-error   { background: rgba(231,76,60,0.9); color: #fff; }
+    .toast-warn    { background: rgba(243,156,18,0.9); color: #000; }
+    .toast-special {
+      background: linear-gradient(135deg, #9b59b6, #6c3483);
+      color: #fff;
+      font-size: 1.1rem;
+    }
+
+    @keyframes toastIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes toastOut {
+      from { transform: translateX(0); opacity: 1; }
+      to   { transform: translateX(120%); opacity: 0; }
+    }
+
+    /* ─────────────────────────────────────
+       革命エフェクトオーバーレイ
+    ───────────────────────────────────── */
+    #revolution-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 8888;
+      pointer-events: none;
+    }
+    .revolution-text {
+      font-family: 'Playfair Display', serif;
+      font-size: 5rem;
+      font-weight: 900;
+      color: var(--accent-purple);
+      text-shadow: 0 0 40px rgba(155,89,182,0.9), 0 0 80px rgba(155,89,182,0.5);
+      animation: revolutionAnim 1.5s ease-out forwards;
+    }
+    @keyframes revolutionAnim {
+      0%   { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+      30%  { transform: scale(1.3) rotate(5deg); opacity: 1; }
+      60%  { transform: scale(1) rotate(0deg); opacity: 1; }
+      100% { transform: scale(1.2) rotate(0deg); opacity: 0; }
+    }
+
+    /* ─────────────────────────────────────
+       ♠3返しボタン
+    ───────────────────────────────────── */
+    .spade-three-btn {
+      position: fixed;
+      bottom: 200px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(46,196,182,0.5); }
+      50% { box-shadow: 0 0 0 12px rgba(46,196,182,0); }
+    }
+
+    /* ─────────────────────────────────────
+       ローディング
+    ───────────────────────────────────── */
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(201,168,76,0.2);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─────────────────────────────────────
+       接続状態
+    ───────────────────────────────────── */
+    #connection-status {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      z-index: 100;
+    }
+    .conn-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .conn-dot.disconnected { background: var(--danger); animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ─────────────────────────────────────
+       レスポンシブ
+    ───────────────────────────────────── */
+    @media (max-width: 480px) {
+      .lobby-card, .waiting-card { padding: 28px 20px; }
+      .lobby-title { font-size: 2.4rem; }
+      .card { width: 52px; height: 78px; }
+      .card-field { width: 60px; height: 90px; }
+      .rules-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* スペ3返し待機中のハイライト */
+    .spade3-waiting .card[data-suit="spades"][data-rank="3"] {
+      animation: spadeThreePulse 0.8s infinite;
+    }
+    @keyframes spadeThreePulse {
+      0%, 100% { box-shadow: var(--shadow-card); }
+      50% { box-shadow: 0 0 0 3px var(--accent-teal), 0 8px 24px rgba(46,196,182,0.5); }
+    }
+
+    /* 手番プレイヤーの強調 */
+    .opponent-info.is-current-turn .opponent-name {
+      color: var(--gold);
+    }
+    .opponent-info.is-current-turn .card-back-mini {
+      border-color: rgba(201,168,76,0.5);
+      box-shadow: 0 0 8px rgba(201,168,76,0.3);
+    }
+
+    /* 上がり済み表示 */
+    .opponent-info.ranked-out { opacity: 0.5; }
+
+    /* セッション成績表 */
+    .session-table {
+      font-size: 0.78rem;
+      margin-top: 16px;
+    }
+    .session-table th {
+      color: var(--text-muted);
+      font-weight: 500;
+      padding: 4px 8px;
+      text-align: center;
+    }
+    .session-table td {
+      padding: 4px 8px;
+      text-align: center;
+      color: var(--text-light);
+    }
+    .session-table tr:nth-child(even) td { background: rgba(255,255,255,0.03); }
+
+    /* ゲーム中の右上コーナー */
+    .game-corner-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 接続状態 -->
+<div id="connection-status">
+  <div class="conn-dot" id="conn-dot"></div>
+  <span id="conn-text">接続中...</span>
+</div>
+
+<!-- 通知トースト -->
+<div id="toast-container"></div>
+
+<!-- 革命エフェクト -->
+<div id="revolution-overlay" class="hidden">
+  <div class="revolution-text" id="revolution-text">🔄 革命！</div>
+</div>
+
+<!-- ─────────────────────────────────
+     SCREEN: ロビー
+───────────────────────────────── -->
+<div id="screen-lobby">
+  <div class="lobby-card">
+    <div class="lobby-title">🃏 大富豪</div>
+    <div class="lobby-subtitle">RIARU TAIMU MULTIPLAYER CARD GAME</div>
+
+    <!-- 招待情報エリア（招待URLでアクセスされた場合のみ表示） -->
+    <div id="invite-info-area" class="hidden text-center" style="margin-bottom: 24px;">
+      <span class="badge badge-host" style="font-size: 0.9rem; padding: 6px 16px; border-radius: 8px;" id="invite-room-id-badge">部屋: -</span>
+      <p style="margin-top: 10px; color: var(--text-light); font-size: 0.95rem; font-weight: 500;">この部屋に招待されました！</p>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="nickname-input">ニックネーム</label>
+      <input class="input" id="nickname-input" type="text" placeholder="あなたの名前を入力"
+        maxlength="12" autocomplete="off" spellcheck="false">
+    </div>
+
+    <!-- 部屋作成ボタン（ホスト用） -->
+    <button class="btn btn-gold w-full btn-lg" id="create-room-btn">
+      ✨ 新しい部屋を作る
+    </button>
+
+    <!-- 部屋参加ボタン（招待URLからアクセスされた参加者用、初期状態は非表示） -->
+    <button class="btn btn-teal w-full btn-lg hidden" id="join-room-btn">
+      🚪 ルームに参加する
+    </button>
+
+    <!-- 部屋IDを内部で保持するための隠しフィールド -->
+    <input type="hidden" id="room-id-input">
+
+    <p class="text-center text-sm text-muted" id="lobby-footer-desc" style="margin-top:20px; line-height:1.6;">
+      2〜6人でプレイ可能<br>部屋URLを共有するだけで参加できます
+    </p>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────
+     SCREEN: 待機室
+───────────────────────────────── -->
+<div id="screen-waiting" class="hidden">
+  <div class="waiting-card">
+    <div class="waiting-header">
+      <div>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:2px;">部屋ID</div>
+        <div class="room-id-display" id="waiting-room-id">XXXX</div>
+      </div>
+      <button class="copy-url-btn" id="copy-url-btn">
+        🔗 URLをコピー
+      </button>
+    </div>
+
+    <div class="player-list">
+      <div class="player-list-title">参加者 (<span id="player-count">0</span>/6)</div>
+      <div id="player-list-items"></div>
+    </div>
+
+    <div class="rules-section">
+      <div class="rules-title">ルール設定</div>
+      <div class="rules-grid">
+        <button class="rule-toggle active" id="rule-revolution" data-rule="revolution">
+          <span class="rule-icon">🔄</span>
+          <span>革命</span>
+        </button>
+        <button class="rule-toggle active" id="rule-eightCut" data-rule="eightCut">
+          <span class="rule-icon">✂️</span>
+          <span>8切り</span>
+        </button>
+        <button class="rule-toggle active" id="rule-spadeThreeReturn" data-rule="spadeThreeReturn">
+          <span class="rule-icon">♠</span>
+          <span>スペ3返し</span>
+        </button>
+        <button class="rule-toggle" id="rule-fiveskip" data-rule="fiveskip">
+          <span class="rule-icon">5️⃣</span>
+          <span>5飛び</span>
+        </button>
+        <button class="rule-toggle" id="rule-elevenBack" data-rule="elevenBack">
+          <span class="rule-icon">🔙</span>
+          <span>11バック</span>
+        </button>
+        <button class="rule-toggle" id="rule-lock" data-rule="lock">
+          <span class="rule-icon">🔒</span>
+          <span>縛り</span>
+        </button>
+        <button class="rule-toggle" id="rule-cityFall" data-rule="cityFall">
+          <span class="rule-icon">🏙️</span>
+          <span>都落ち</span>
+        </button>
+        <button class="rule-toggle active" id="rule-twoJokers" data-rule="twoJokers">
+          <span class="rule-icon">🃏</span>
+          <span>ジョーカー2枚</span>
+        </button>
+      </div>
+    </div>
+
+    <button class="btn btn-gold w-full btn-lg" id="start-game-btn">
+      🎮 ゲーム開始
+    </button>
+    <p class="text-center text-sm text-muted" id="start-hint" style="margin-top:8px;">
+      2人以上でゲームを開始できます（ホストのみ）
+    </p>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────
+     SCREEN: ゲーム
+───────────────────────────────── -->
+<div id="screen-game" class="hidden">
+  <!-- トップバー -->
+  <div class="game-topbar">
+    <div class="topbar-status">
+      <div id="revolution-badge" class="revolution-badge hidden">🔄 革命中</div>
+      <div id="eleven-back-badge" class="eleven-back-badge hidden">🔙 11バック</div>
+    </div>
+    <div class="turn-display">
+      手番: <span class="turn-name" id="turn-player-name">-</span>
+    </div>
+    <div class="game-corner-info">
+      <div style="font-size:0.7rem; color:var(--text-muted);" id="lock-display"></div>
+      <div style="font-size:0.7rem; color:var(--text-muted);" id="round-display">ラウンド -</div>
+    </div>
+  </div>
+
+  <!-- 対戦相手エリア -->
+  <div class="opponents-area" id="opponents-area">
+  </div>
+
+  <!-- 場のカード -->
+  <div class="field-area">
+    <div class="field-label">場のカード</div>
+    <div class="field-cards" id="field-cards">
+      <div class="field-empty">まだカードがありません</div>
+    </div>
+    <div class="field-player-name" id="field-player-name"></div>
+  </div>
+
+  <!-- アクションボタン -->
+  <div class="action-bar">
+    <button class="btn btn-gold btn-lg" id="play-btn" disabled>
+      カードを出す
+    </button>
+    <button class="btn btn-outline btn-lg" id="pass-btn" disabled>
+      パス
+    </button>
+  </div>
+
+  <!-- 手札エリア -->
+  <div class="hand-area">
+    <div class="hand-label">あなたの手札 (<span id="hand-count">0</span>枚)</div>
+    <div class="hand-cards" id="hand-cards"></div>
+  </div>
+</div>
+
+<!-- ♠3返しボタン（スペ3待機中に表示） -->
+<button class="btn btn-teal spade-three-btn hidden" id="spade-three-btn">
+  ♠3 で返す！
+</button>
+
+<!-- ─────────────────────────────────
+     SCREEN: カード交換
+───────────────────────────────── -->
+<div id="screen-exchange" class="hidden">
+  <div class="exchange-card">
+    <div class="exchange-title">🔀 カード交換フェーズ</div>
+    <div class="exchange-desc" id="exchange-desc">交換するカードを選んでください</div>
+
+    <div class="hand-cards" id="exchange-hand" style="margin-bottom:20px;"></div>
+
+    <button class="btn btn-teal w-full" id="exchange-confirm-btn">
+      選択したカードを渡す (<span id="exchange-selected-count">0</span>/<span id="exchange-need-count">0</span>枚)
+    </button>
+    <p class="text-center text-sm text-muted" style="margin-top:12px;" id="exchange-waiting-msg"></p>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────
+     SCREEN: 結果
+───────────────────────────────── -->
+<div id="screen-result" class="hidden">
+  <div class="result-card">
+    <div class="result-title">🎉 ラウンド終了！</div>
+    <div id="result-rankings"></div>
+
+    <div id="exchange-phase-msg" class="hidden" style="text-align:center; color:var(--text-muted); margin: 16px 0; font-size:0.85rem;">
+      カード交換フェーズ中...
+    </div>
+
+    <div style="margin-top:20px;">
+      <button class="btn btn-gold w-full" id="next-round-btn" style="display:none;">
+        次のラウンドへ ▶
+      </button>
+    </div>
+
+    <div id="session-rankings-container"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// アプリケーション状態
+// ═══════════════════════════════════════════════════
+
+const State = {
+  ws: null,
+  myId: null,
+  roomId: null,
+  isHost: false,
+  players: [],
+  rules: {},
+  hand: [],
+  selectedCards: [],
+  gameState: null,
+  exchangeNeed: 0,
+  exchangeToId: null,
+  exchangeHand: [],
+  sessionRound: 0,
+  prevTurn: null,          // ★ 手番変化検知用
+  myTurnBannerTimer: null, // ★ 手番バナータイマー
+};
+
+// カードのスート・ランク定数
+const SUIT_SYMBOL = { clubs: '♣', diamonds: '♦', hearts: '♥', spades: '♠', joker: '🃏' };
+const RANK_DISPLAY = {
+  1:'A', 2:'2', 3:'3', 4:'4', 5:'5', 6:'6', 7:'7',
+  8:'8', 9:'9', 10:'10', 11:'J', 12:'Q', 13:'K', 0:'🃏'
+};
+const RED_SUITS = new Set(['hearts', 'diamonds']);
+
+const RANK_NAMES = {
+  1: '大富豪', 2: '富豪', 3: '平民', 4: '貧民', 5: '大貧民',
+};
+const RANK_EMOJIS = ['🥇','🥈','🏅','😢','💀','😵'];
+
+// ═══════════════════════════════════════════════════
+// WebSocket 接続
+// ═══════════════════════════════════════════════════
+
+function connectWS() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}`;
+  State.ws = new WebSocket(wsUrl);
+
+  State.ws.addEventListener('open', () => {
+    setConnectionStatus(true);
+    // URLパラメータに部屋IDがあれば自動参加
+    const urlParams = new URLSearchParams(location.search);
+    const roomFromUrl = urlParams.get('room');
+    if (roomFromUrl) {
+      document.getElementById('room-id-input').value = roomFromUrl.toUpperCase();
+    }
+  });
+
+  State.ws.addEventListener('close', () => {
+    setConnectionStatus(false);
+    setTimeout(connectWS, 2000);
+  });
+
+  State.ws.addEventListener('message', (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      handleServerMessage(msg);
+    } catch(err) {
+      console.error('メッセージ解析エラー:', err);
+    }
+  });
+
+  State.ws.addEventListener('error', () => {
+    setConnectionStatus(false);
+  });
+}
+
+function sendMsg(data) {
+  if (State.ws && State.ws.readyState === WebSocket.OPEN) {
+    State.ws.send(JSON.stringify(data));
+  }
+}
+
+function setConnectionStatus(connected) {
+  const dot = document.getElementById('conn-dot');
+  const text = document.getElementById('conn-text');
+  if (connected) {
+    dot.classList.remove('disconnected');
+    text.textContent = '接続済み';
+  } else {
+    dot.classList.add('disconnected');
+    text.textContent = '再接続中...';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// サーバーメッセージハンドラ
+// ═══════════════════════════════════════════════════
+
+function handleServerMessage(msg) {
+  console.log('受信:', msg);
+
+  switch(msg.type) {
+    case 'created':
+    case 'joined':
+    case 'rejoined':
+      State.myId = msg.playerId;
+      State.roomId = msg.roomId;
+      State.players = msg.players || [];
+      State.rules = msg.rules || {};
+      State.isHost = msg.hostId === State.myId;
+      State.sessionRound = 0;
+      showScreen('waiting');
+      updateWaitingUI(msg);
+      break;
+
+    case 'room_state':
+      State.players = msg.players || [];
+      State.rules = msg.rules || {};
+      State.isHost = msg.hostId === State.myId;
+      updateWaitingUI(msg);
+      if (isOnScreen('waiting')) updateWaitingUI(msg);
+      break;
+
+    case 'game_state':
+      State.gameState = msg;
+      State.sessionRound = (msg.sessionRankings || []).length;
+      updateGameUI(msg);
+      // ゲーム画面に遷移（結果・交換画面からも）
+      if (!isOnScreen('game')) showScreen('game');
+      break;
+
+    case 'your_hand':
+      State.hand = msg.cards || [];
+      State.hand.sort((a, b) => {
+        const order = { 3:1, 4:2, 5:3, 6:4, 7:5, 8:6, 9:7, 10:8, 11:9, 12:10, 13:11, 1:12, 2:13, 0:99 };
+        return order[a.rank] - order[b.rank];
+      });
+      State.selectedCards = [];
+      renderHand();
+      break;
+
+    case 'action_result':
+      if (!msg.success) {
+        showToast(msg.message, 'error');
+      }
+      break;
+
+    case 'revolution':
+      triggerRevolutionEffect(msg.state);
+      break;
+
+    case 'eleven_back':
+      showToast(msg.state ? '🔙 11バック！カードの強さが逆転' : '11バック終了', msg.state ? 'warn' : 'info');
+      break;
+
+    case 'eight_cut':
+      showToast('✂️ 8切り！場を流しました', 'info');
+      break;
+
+    case 'field_cleared':
+      showToast('場が流れました', 'info');
+      break;
+
+    case 'player_ranked': {
+      const rPlayer = State.players.find(p => p.id === msg.playerId);
+      const name = rPlayer?.nickname || 'プレイヤー';
+      const rankName = getRankName(msg.rank, State.players.length);
+      showToast(`${name} が上がり！【${rankName}】`, msg.playerId === State.myId ? 'success' : 'info');
+      break;
+    }
+
+    case 'spade_three_chance':
+      handleSpadeThreeChance(msg);
+      break;
+
+    case 'spade_three_used': {
+      const sp3Player = State.players.find(p => p.id === msg.playerId);
+      showToast(`♠3返し！ ${sp3Player?.nickname || ''}`, 'warn');
+      hideSpadeThreeBtn();
+      break;
+    }
+
+    case 'round_end':
+      handleRoundEnd(msg);
+      break;
+
+    case 'exchange_request':
+      handleExchangeRequest(msg);
+      break;
+
+    case 'exchange_complete':
+      showToast('カード交換完了！', 'success');
+      document.getElementById('exchange-waiting-msg').textContent = '交換が完了しました。ホストの開始を待っています...';
+      document.getElementById('exchange-confirm-btn').disabled = true;
+      break;
+
+    case 'host_changed': {
+      State.isHost = msg.hostId === State.myId;
+      if (State.isHost) showToast('あなたがホストになりました', 'info');
+      break;
+    }
+
+    case 'player_disconnected': {
+      const dcPlayer = State.players.find(p => p.id === msg.playerId);
+      if (dcPlayer) showToast(`${dcPlayer.nickname} が切断しました`, 'warn');
+      break;
+    }
+
+    case 'player_reconnected': {
+      const rcPlayer = State.players.find(p => p.id === msg.playerId);
+      if (rcPlayer) showToast(`${rcPlayer.nickname} が再接続しました`, 'info');
+      break;
+    }
+
+    case 'error':
+      showToast(msg.message, 'error');
+      break;
+
+    default:
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// UI: 画面切り替え
+// ═══════════════════════════════════════════════════
+
+const SCREENS = ['lobby', 'waiting', 'game', 'result', 'exchange'];
+function showScreen(name) {
+  SCREENS.forEach(s => {
+    const el = document.getElementById(`screen-${s}`);
+    if (el) el.classList.toggle('hidden', s !== name);
+  });
+}
+function isOnScreen(name) {
+  const el = document.getElementById(`screen-${name}`);
+  return el && !el.classList.contains('hidden');
+}
+
+// ═══════════════════════════════════════════════════
+// UI: 待機室
+// ═══════════════════════════════════════════════════
+
+function updateWaitingUI(msg) {
+  const roomId = State.roomId || '';
+  document.getElementById('waiting-room-id').textContent = roomId;
+  document.getElementById('player-count').textContent = State.players.filter(p => p.connected !== false).length;
+
+  // プレイヤー一覧
+  const list = document.getElementById('player-list-items');
+  list.innerHTML = '';
+  State.players.forEach(p => {
+    if (p.connected === false) return;
+    const isHost = p.id === (msg.hostId || (msg.players && msg.players[0]?.id));
+    const isMe = p.id === State.myId;
+    const div = document.createElement('div');
+    div.className = `player-item${isHost ? ' is-host' : ''}${isMe ? ' is-me' : ''}`;
+    div.innerHTML = `
+      <div class="player-avatar">${isHost ? '👑' : '🙂'}</div>
+      <div class="player-name">${escapeHtml(p.nickname)}</div>
+      ${isHost ? '<span class="badge badge-host">ホスト</span>' : ''}
+      ${isMe ? '<span class="badge badge-you">あなた</span>' : ''}
+    `;
+    list.appendChild(div);
+  });
+
+  // ルール表示
+  updateRuleToggles(msg.rules || State.rules || {});
+
+  // ホストのみルール変更・開始可能
+  const isHost = msg.hostId === State.myId;
+  document.querySelectorAll('.rule-toggle').forEach(btn => {
+    btn.disabled = !isHost;
+  });
+
+  const startBtn = document.getElementById('start-game-btn');
+  const connCount = State.players.filter(p => p.connected !== false).length;
+  startBtn.style.display = isHost ? 'block' : 'none';
+  document.getElementById('start-hint').textContent =
+    isHost
+      ? (connCount < 2 ? '2人以上必要です' : 'ゲームを開始できます！')
+      : 'ホストのゲーム開始を待っています...';
+  startBtn.disabled = !isHost || connCount < 2;
+}
+
+function updateRuleToggles(rules) {
+  document.querySelectorAll('.rule-toggle').forEach(btn => {
+    const rule = btn.dataset.rule;
+    btn.classList.toggle('active', !!rules[rule]);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// UI: ゲーム画面
+// ═══════════════════════════════════════════════════
+
+function updateGameUI(gs) {
+  if (!gs) return;
+
+  // ★ 手番変化検知：前回の手番から自分の手番に変わったなら通知
+  const isMyTurn = gs.turn === State.myId;
+  if (isMyTurn && State.prevTurn !== State.myId) {
+    showMyTurnBanner();
+  }
+  State.prevTurn = gs.turn;
+
+  // 手番表示
+  const turnPlayer = State.players.find(p => p.id === gs.turn) || gs.players?.find(p => p.id === gs.turn);
+  document.getElementById('turn-player-name').textContent =
+    isMyTurn ? 'あなた ✨' : (turnPlayer?.nickname || '-');
+
+  // 革命・11バック
+  document.getElementById('revolution-badge').classList.toggle('hidden', !gs.revolution);
+  document.getElementById('eleven-back-badge').classList.toggle('hidden', !gs.elevenBack);
+
+  // 縛り表示
+  const lockEl = document.getElementById('lock-display');
+  if (gs.lockSuit) {
+    const suitSymbols = { clubs:'♣', diamonds:'♦', hearts:'♥', spades:'♠' };
+    lockEl.textContent = `${suitSymbols[gs.lockSuit] || gs.lockSuit}縛り`;
+  } else {
+    lockEl.textContent = '';
+  }
+
+  // ラウンド表示
+  document.getElementById('round-display').textContent =
+    `ラウンド ${State.sessionRound + 1}`;
+
+  // 対戦相手
+  renderOpponents(gs);
+
+  // 場のカード
+  renderFieldCards(gs.fieldHistory || []);
+  const fieldPlayerInfo = gs.players?.find(p => p.id === gs.fieldPlayer);
+  document.getElementById('field-player-name').textContent =
+    fieldPlayerInfo ? `${fieldPlayerInfo.nickname} が出した` : '';
+
+  // ボタン状態
+  const playBtn = document.getElementById('play-btn');
+  const passBtn = document.getElementById('pass-btn');
+  const myRanked = gs.players?.find(p => p.id === State.myId)?.rank !== null;
+
+  playBtn.disabled = !isMyTurn || myRanked;
+  passBtn.disabled = !isMyTurn || myRanked || (gs.field || []).length === 0;
+
+  // 手札（game_stateと一緒に来るが、your_handで上書き済みなので再描画）
+  renderHand();
+}
+
+/** ★ 自分の手番バナーを表示 */
+function showMyTurnBanner() {
+  // 既存のバナーを削除
+  const existing = document.querySelector('.my-turn-banner');
+  if (existing) existing.remove();
+  clearTimeout(State.myTurnBannerTimer);
+
+  const fieldArea = document.querySelector('.field-area');
+  if (!fieldArea) return;
+
+  const banner = document.createElement('div');
+  banner.className = 'my-turn-banner';
+  banner.textContent = '🎴 あなたの手番です！';
+  fieldArea.appendChild(banner);
+
+  // 2.5秒後にフェードアウト
+  State.myTurnBannerTimer = setTimeout(() => {
+    banner.style.transition = 'opacity 0.4s';
+    banner.style.opacity = '0';
+    setTimeout(() => banner.remove(), 400);
+  }, 2500);
+}
+
+function renderOpponents(gs) {
+  const area = document.getElementById('opponents-area');
+  area.innerHTML = '';
+  const opponents = (gs.players || State.players).filter(p => p.id !== State.myId);
+  opponents.forEach(p => {
+    const isCurrentTurn = gs.turn === p.id;
+    const isRanked = p.rank !== null;
+    const div = document.createElement('div');
+    div.className = `opponent-info${isCurrentTurn ? ' is-current-turn' : ''}${isRanked ? ' ranked-out' : ''}`;
+
+    const cardCount = p.handCount !== undefined ? p.handCount : 0;
+    const cards = Array.from({ length: Math.min(cardCount, 10) }, () =>
+      `<div class="card-back-mini"></div>`
+    ).join('');
+
+    const rankBadge = isRanked ? `<div class="opponent-rank-badge" style="background:${getRankColor(p.rank, State.players.length)}">${getRankName(p.rank, State.players.length)}</div>` : '';
+
+    div.innerHTML = `
+      <div class="opponent-name${isCurrentTurn ? ' is-turn' : ''}">${escapeHtml(p.nickname)}</div>
+      <div class="opponent-cards">${cards}</div>
+      <div style="font-size:0.7rem; color:var(--text-muted);">${cardCount}枚</div>
+      ${rankBadge}
+    `;
+    area.appendChild(div);
+  });
+}
+
+function renderFieldCards(history) {
+  const area = document.getElementById('field-cards');
+  if (!history || history.length === 0) {
+    area.innerHTML = '<div class="field-empty">まだカードがありません</div>';
+    return;
+  }
+  area.innerHTML = '';
+
+  // 最新のプレイが中心になるように、旧いプレイを少しずらして重ねる
+  const latestPlay = history[history.length - 1];
+  const cardW = 72; // card-field の幅
+  // 最新プレイのカード横幅合計（中心起点に使う）
+  const latestTotalW = latestPlay.cards.length * (cardW + 4);
+
+  history.forEach((play, index) => {
+    const offset = (history.length - 1 - index); // 0が最新、大きいほど古い
+    const playWrap = document.createElement('div');
+    playWrap.style.position = 'absolute';
+    playWrap.style.display = 'flex';
+    playWrap.style.gap = '4px';
+    // 中心から左上にずらす
+    const translateX = -(offset * 10);
+    const translateY = -(offset * 10);
+    playWrap.style.transform = `translate(${translateX}px, ${translateY}px)`;
+    playWrap.style.zIndex = index;
+    // 古いプレイは暗く
+    if (index < history.length - 1) {
+      playWrap.style.filter = 'brightness(0.65)';
+    }
+    play.cards.forEach(c => {
+      playWrap.appendChild(createCardEl(c, false, 'card-field'));
+    });
+    area.appendChild(playWrap);
+  });
+}
+
+function renderHand() {
+  const area = document.getElementById('hand-cards');
+  area.innerHTML = '';
+  State.hand.forEach((card, i) => {
+    const el = createCardEl(card, true);
+    // 選択状態
+    const isSelected = State.selectedCards.some(
+      s => s.suit === card.suit && s.rank === card.rank
+    );
+    if (isSelected) el.classList.add('selected');
+
+    el.addEventListener('click', () => toggleCardSelection(card, i));
+    area.appendChild(el);
+  });
+  document.getElementById('hand-count').textContent = State.hand.length;
+  updatePlayButton();
+}
+
+function toggleCardSelection(card, idx) {
+  const gs = State.gameState;
+  if (!gs || gs.turn !== State.myId) return;
+
+  const existIdx = State.selectedCards.findIndex(
+    s => s.suit === card.suit && s.rank === card.rank
+  );
+  if (existIdx !== -1) {
+    State.selectedCards.splice(existIdx, 1);
+  } else {
+    State.selectedCards.push(card);
+  }
+  renderHand();
+}
+
+function updatePlayButton() {
+  const playBtn = document.getElementById('play-btn');
+  const count = State.selectedCards.length;
+  playBtn.textContent = count > 0
+    ? `カードを出す (${count}枚)`
+    : 'カードを出す';
+}
+
+// ═══════════════════════════════════════════════════
+// カード要素生成
+// ═══════════════════════════════════════════════════
+
+function createCardEl(card, clickable = false, extraClass = '') {
+  const el = document.createElement('div');
+
+  if (card.rank === 0) {
+    // ジョーカー
+    el.className = `card joker ${extraClass}`;
+    el.dataset.suit = 'joker';
+    el.dataset.rank = '0';
+    el.innerHTML = `<div style="font-size:2rem; text-align:center;">🃏</div><div style="font-size:0.65rem; color:rgba(255,255,255,0.7); text-align:center;">JOKER</div>`;
+  } else {
+    const isRed = RED_SUITS.has(card.suit);
+    el.className = `card ${isRed ? 'red' : 'black'} ${extraClass}`;
+    el.dataset.suit = card.suit;
+    el.dataset.rank = card.rank;
+
+    const sym = SUIT_SYMBOL[card.suit] || '';
+    const rank = RANK_DISPLAY[card.rank] || card.rank;
+    el.innerHTML = `
+      <div>
+        <div class="card-rank-top">${rank}</div>
+        <div class="card-suit-top">${sym}</div>
+      </div>
+      <div class="card-center">${sym}</div>
+      <div>
+        <div class="card-rank-bot">${rank}</div>
+        <div class="card-suit-bot">${sym}</div>
+      </div>
+    `;
+  }
+
+  if (!clickable) el.style.cursor = 'default';
+  return el;
+}
+
+// ═══════════════════════════════════════════════════
+// UI: ♠3返し
+// ═══════════════════════════════════════════════════
+
+function handleSpadeThreeChance(msg) {
+  if (msg.fromId === State.myId) return; // 自分が出した場合は不要
+
+  // ♠3を持っているか確認
+  const hasSpadeThree = State.hand.some(c => c.suit === 'spades' && c.rank === 3);
+  if (!hasSpadeThree) return;
+
+  const btn = document.getElementById('spade-three-btn');
+  btn.classList.remove('hidden');
+  document.getElementById('screen-game').classList.add('spade3-waiting');
+
+  // 5秒後に自動非表示
+  setTimeout(() => hideSpadeThreeBtn(), 5500);
+}
+
+function hideSpadeThreeBtn() {
+  document.getElementById('spade-three-btn').classList.add('hidden');
+  document.getElementById('screen-game').classList.remove('spade3-waiting');
+}
+
+// ═══════════════════════════════════════════════════
+// UI: ラウンド終了
+// ═══════════════════════════════════════════════════
+
+function handleRoundEnd(msg) {
+  const rankings = msg.rankings || [];
+  const n = rankings.length;
+
+  // 結果画面に遷移
+  showScreen('result');
+  State.selectedCards = [];
+
+  // ランキング表示
+  const container = document.getElementById('result-rankings');
+  container.innerHTML = '';
+  rankings.forEach((p, i) => {
+    const isMe = p.id === State.myId;
+    const rankName = getRankName(p.rank, n);
+    const emoji = RANK_EMOJIS[i] || '👤';
+    const item = document.createElement('div');
+    item.className = `ranking-item rank-${p.rank}${isMe ? ' is-me' : ''}`;
+    item.innerHTML = `
+      <div class="rank-emoji">${emoji}</div>
+      <div class="rank-name-col">
+        <div class="rank-title">${rankName}</div>
+        <div class="rank-player">${escapeHtml(p.nickname)}${isMe ? ' (あなた)' : ''}</div>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  // 交換フェーズ表示
+  const hasExchange = (msg.exchanges || []).length > 0;
+  document.getElementById('exchange-phase-msg').classList.toggle('hidden', !hasExchange);
+
+  // 次ラウンドボタン（ホストのみ）
+  const nextBtn = document.getElementById('next-round-btn');
+  nextBtn.style.display = State.isHost ? 'block' : 'none';
+
+  // セッション成績
+  renderSessionRankings(msg.sessionRankings || [], State.players);
+}
+
+function handleExchangeRequest(msg) {
+  State.exchangeNeed = msg.give;
+  State.exchangeToId = msg.toId;
+  State.exchangeHand = msg.hand || [];
+  State.selectedCards = [];
+
+  const toPlayer = State.players.find(p => p.id === msg.toId);
+  document.getElementById('exchange-desc').textContent =
+    `${toPlayer?.nickname || '相手'} に渡すカードを ${msg.give} 枚選んでください`;
+  document.getElementById('exchange-need-count').textContent = msg.give;
+  document.getElementById('exchange-selected-count').textContent = 0;
+  document.getElementById('exchange-waiting-msg').textContent = '';
+  document.getElementById('exchange-confirm-btn').disabled = true;
+
+  // 交換用手札描画
+  const area = document.getElementById('exchange-hand');
+  area.innerHTML = '';
+  State.exchangeHand.forEach(card => {
+    const el = createCardEl(card, true);
+    el.addEventListener('click', () => toggleExchangeCard(card, el));
+    area.appendChild(el);
+  });
+
+  showScreen('exchange');
+}
+
+function toggleExchangeCard(card, el) {
+  const existIdx = State.selectedCards.findIndex(
+    s => s.suit === card.suit && s.rank === card.rank
+  );
+  if (existIdx !== -1) {
+    State.selectedCards.splice(existIdx, 1);
+    el.classList.remove('selected');
+  } else {
+    if (State.selectedCards.length >= State.exchangeNeed) {
+      showToast(`${State.exchangeNeed}枚まで選択できます`, 'warn');
+      return;
+    }
+    State.selectedCards.push(card);
+    el.classList.add('selected');
+  }
+
+  const count = State.selectedCards.length;
+  document.getElementById('exchange-selected-count').textContent = count;
+  document.getElementById('exchange-confirm-btn').disabled = count !== State.exchangeNeed;
+}
+
+function renderSessionRankings(history, players) {
+  if (!history || history.length === 0) return;
+  const container = document.getElementById('session-rankings-container');
+
+  let html = `<div style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.08); padding-top:16px;">
+    <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">通算成績</div>
+    <table class="session-table" style="width:100%; border-collapse:collapse;">
+      <thead><tr><th>名前</th>`;
+
+  history.forEach((_, i) => {
+    html += `<th>R${i + 1}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  players.forEach(p => {
+    html += `<tr><td style="text-align:left; padding:4px 8px;">${escapeHtml(p.nickname)}${p.id === State.myId ? ' 👤' : ''}</td>`;
+    history.forEach(round => {
+      const rank = round.indexOf(p.id) + 1;
+      const rankName = getRankShort(rank, players.length);
+      html += `<td>${rankName}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════
+// エフェクト
+// ═══════════════════════════════════════════════════
+
+function triggerRevolutionEffect(state) {
+  const overlay = document.getElementById('revolution-overlay');
+  const text = document.getElementById('revolution-text');
+  text.textContent = state ? '🔄 革命！' : '🔄 再革命！';
+  overlay.classList.remove('hidden');
+
+  // アニメーションリセット
+  text.style.animation = 'none';
+  requestAnimationFrame(() => {
+    text.style.animation = 'revolutionAnim 1.5s ease-out forwards';
+  });
+
+  setTimeout(() => overlay.classList.add('hidden'), 1600);
+  showToast(state ? '🔄 革命発動！カードの強さが逆転！' : '🔄 再革命！元に戻りました', 'special');
+}
+
+// ═══════════════════════════════════════════════════
+// トースト通知
+// ═══════════════════════════════════════════════════
+
+function showToast(message, type = 'info', duration = 3000) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease-in forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ═══════════════════════════════════════════════════
+// ユーティリティ
+// ═══════════════════════════════════════════════════
+
+function getRankName(rank, total) {
+  if (!rank) return '-';
+  if (total <= 2) return rank === 1 ? '勝者' : '敗者';
+  if (total === 3) return ['大富豪', '平民', '大貧民'][rank - 1] || '-';
+  if (total === 4) return ['大富豪', '富豪', '貧民', '大貧民'][rank - 1] || '-';
+  if (total === 5) return ['大富豪', '富豪', '平民', '貧民', '大貧民'][rank - 1] || '-';
+  return ['大富豪', '富豪', '平民', '平民', '貧民', '大貧民'][rank - 1] || '-';
+}
+
+function getRankShort(rank, total) {
+  const name = getRankName(rank, total);
+  const map = { '大富豪': '大富', '富豪': '富', '平民': '民', '貧民': '貧', '大貧民': '大貧', '勝者': '勝', '敗者': '敗' };
+  return map[name] || name;
+}
+
+function getRankColor(rank, total) {
+  const colors = [
+    'rgba(201,168,76,0.8)',    // 1位: ゴールド
+    'rgba(192,192,192,0.7)',   // 2位: シルバー
+    'rgba(100,140,100,0.6)',   // 3位: グリーン
+    'rgba(180,120,80,0.7)',    // 4位: ブロンズ
+    'rgba(200,70,70,0.7)',     // 5位: レッド
+    'rgba(120,30,30,0.7)',     // 6位: ダーク
+  ];
+  return colors[rank - 1] || colors[colors.length - 1];
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ═══════════════════════════════════════════════════
+// イベントリスナー: ロビー
+// ═══════════════════════════════════════════════════
+
+document.getElementById('create-room-btn').addEventListener('click', () => {
+  const nickname = document.getElementById('nickname-input').value.trim();
+  if (!nickname) { showToast('ニックネームを入力してください', 'error'); return; }
+
+  sendMsg({ type: 'create', nickname, rules: {} });
+});
+
+document.getElementById('join-room-btn').addEventListener('click', () => {
+  const nickname = document.getElementById('nickname-input').value.trim();
+  const roomId = document.getElementById('room-id-input').value.trim().toUpperCase();
+  if (!nickname) { showToast('ニックネームを入力してください', 'error'); return; }
+  if (!roomId) { showToast('部屋IDを入力してください', 'error'); return; }
+
+  sendMsg({ type: 'join', roomId, nickname });
+});
+
+// Enterキー対応
+document.getElementById('nickname-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const isJoinVisible = !document.getElementById('join-room-btn').classList.contains('hidden');
+    if (isJoinVisible) {
+      document.getElementById('join-room-btn').click();
+    } else {
+      document.getElementById('create-room-btn').click();
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// イベントリスナー: 待機室
+// ═══════════════════════════════════════════════════
+
+document.getElementById('copy-url-btn').addEventListener('click', () => {
+  const url = `${location.origin}/?room=${State.roomId}`;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('URLをコピーしました！', 'success');
+  });
+});
+
+document.getElementById('start-game-btn').addEventListener('click', () => {
+  sendMsg({ type: 'start' });
+});
+
+// ルール切り替え
+document.querySelectorAll('.rule-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!State.isHost) return;
+    const rule = btn.dataset.rule;
+    State.rules[rule] = !State.rules[rule];
+    btn.classList.toggle('active', State.rules[rule]);
+    sendMsg({ type: 'update_rules', rules: State.rules });
+  });
+});
+
+// ═══════════════════════════════════════════════════
+// イベントリスナー: ゲーム画面
+// ═══════════════════════════════════════════════════
+
+document.getElementById('play-btn').addEventListener('click', () => {
+  if (State.selectedCards.length === 0) {
+    showToast('カードを選択してください', 'warn');
+    return;
+  }
+  sendMsg({ type: 'play', cards: State.selectedCards });
+  State.selectedCards = [];
+  renderHand();
+});
+
+document.getElementById('pass-btn').addEventListener('click', () => {
+  sendMsg({ type: 'pass' });
+});
+
+document.getElementById('spade-three-btn').addEventListener('click', () => {
+  sendMsg({ type: 'spade_three' });
+  hideSpadeThreeBtn();
+});
+
+// ═══════════════════════════════════════════════════
+// イベントリスナー: カード交換
+// ═══════════════════════════════════════════════════
+
+document.getElementById('exchange-confirm-btn').addEventListener('click', () => {
+  if (State.selectedCards.length !== State.exchangeNeed) return;
+  sendMsg({ type: 'exchange', cards: State.selectedCards });
+  document.getElementById('exchange-confirm-btn').disabled = true;
+  document.getElementById('exchange-waiting-msg').textContent = '交換を送信しました。相手の応答を待っています...';
+});
+
+// ═══════════════════════════════════════════════════
+// イベントリスナー: 結果画面
+// ═══════════════════════════════════════════════════
+
+document.getElementById('next-round-btn').addEventListener('click', () => {
+  sendMsg({ type: 'next_round' });
+});
+
+// ═══════════════════════════════════════════════════
+// URLパラメータ処理
+// ═══════════════════════════════════════════════════
+
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(location.search);
+  const roomFromUrl = urlParams.get('room');
+  if (roomFromUrl) {
+    const formattedRoomId = roomFromUrl.toUpperCase();
+    document.getElementById('room-id-input').value = formattedRoomId;
+    document.getElementById('nickname-input').focus();
+    
+    // UIの切り替え
+    document.getElementById('invite-info-area').classList.remove('hidden');
+    document.getElementById('invite-room-id-badge').textContent = `部屋: ${formattedRoomId}`;
+    
+    document.getElementById('create-room-btn').classList.add('hidden');
+    document.getElementById('join-room-btn').classList.remove('hidden');
+    
+    document.getElementById('lobby-footer-desc').innerHTML = `部屋 ${formattedRoomId} に参加しようとしています。`;
+    
+    showToast(`部屋 ${formattedRoomId} への招待リンクです！`, 'info', 4000);
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// 起動
+// ═══════════════════════════════════════════════════
+
+connectWS();
+</script>
+</body>
+</html>
