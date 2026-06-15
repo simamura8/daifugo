@@ -97,6 +97,7 @@ const DEFAULT_RULES = {
   lock: false,
   cityFall: false,
   twoJokers: true,
+  cardExchange: true,
 };
 
 function createRoom(hostId, hostNickname, hostWs, rules = {}) {
@@ -392,6 +393,16 @@ function notPassedCount(room) {
 /** 次のラウンドまたは新しいゲームのカード交換処理 */
 function startExchangePhase(room) {
   const n = room.players.length;
+
+  // カード交換設定がOFFの場合は交換フェーズをスキップ
+  if (room.rules.cardExchange === false) {
+    room.gameState.phase = 'ready';
+    room.gameState.exchanges = [];
+    room.gameState.exchangeDone = [];
+    sendRoundEnd(room);
+    return;
+  }
+
   room.gameState.phase = 'exchange';
 
   const rankings = room.players
