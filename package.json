@@ -4,10 +4,11 @@
   "description": "リアルタイム多人数カードゲーム「大富豪」",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "wrangler pages dev"
   },
-  "dependencies": {
-    "ws": "^8.18.0"
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260616.1",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.100.0"
   }
 }

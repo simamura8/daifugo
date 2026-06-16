@@ -7,6 +7,7 @@
   <meta name="description" content="ブラウザだけで遊べるリアルタイム多人数カードゲーム「大富豪」。部屋を作成してURLを共有するだけで最大6人が参加できます。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+  <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
   <style>
     /* ─────────────────────────────────────
        デザインシステム / カラーパレット
@@ -1183,46 +1184,75 @@ const RANK_NAMES = {
 const RANK_EMOJIS = ['🥇','🥈','🏅','😢','💀','😵'];
 
 // ═══════════════════════════════════════════════════
-// WebSocket 接続
+// 通信 (Pusher + Fetch API)
 // ═══════════════════════════════════════════════════
 
+let pusherChannel = null;
+let pusherPrivateChannel = null;
+
 function connectWS() {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${location.host}`;
-  State.ws = new WebSocket(wsUrl);
+  setConnectionStatus(true);
+  const urlParams = new URLSearchParams(location.search);
+  const roomFromUrl = urlParams.get('room');
+  if (roomFromUrl) {
+    document.getElementById('room-id-input').value = roomFromUrl.toUpperCase();
+  }
+}
 
-  State.ws.addEventListener('open', () => {
-    setConnectionStatus(true);
-    // URLパラメータに部屋IDがあれば自動参加
-    const urlParams = new URLSearchParams(location.search);
-    const roomFromUrl = urlParams.get('room');
-    if (roomFromUrl) {
-      document.getElementById('room-id-input').value = roomFromUrl.toUpperCase();
-    }
+function initPusher(roomId, playerId) {
+  if (State.ws) return; // 初期化済み
+
+  const PUSHER_KEY = '124a9812bbe323d972ea';
+  const PUSHER_CLUSTER = 'ap3';
+
+  State.ws = new Pusher(PUSHER_KEY, {
+    cluster: PUSHER_CLUSTER,
   });
 
-  State.ws.addEventListener('close', () => {
-    setConnectionStatus(false);
-    setTimeout(connectWS, 2000);
+  State.ws.connection.bind('connected', () => setConnectionStatus(true));
+  State.ws.connection.bind('disconnected', () => setConnectionStatus(false));
+  State.ws.connection.bind('error', () => setConnectionStatus(false));
+
+  const roomChannelName = `daifugo-room-${roomId}`;
+  pusherChannel = State.ws.subscribe(roomChannelName);
+  pusherChannel.bind('state-update', (data) => {
+    handleServerMessage(data);
   });
 
-  State.ws.addEventListener('message', (e) => {
-    try {
-      const msg = JSON.parse(e.data);
-      handleServerMessage(msg);
-    } catch(err) {
-      console.error('メッセージ解析エラー:', err);
-    }
-  });
-
-  State.ws.addEventListener('error', () => {
-    setConnectionStatus(false);
+  const privateChannelName = `daifugo-room-${roomId}-player-${playerId}`;
+  pusherPrivateChannel = State.ws.subscribe(privateChannelName);
+  pusherPrivateChannel.bind('state-update', (data) => {
+    handleServerMessage(data);
   });
 }
 
-function sendMsg(data) {
-  if (State.ws && State.ws.readyState === WebSocket.OPEN) {
-    State.ws.send(JSON.stringify(data));
+async function sendMsg(data) {
+  const payload = {
+    roomId: State.roomId,
+    playerId: State.myId,
+    ...data,
+  };
+
+  try {
+    const res = await fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    
+    if (!res.ok) {
+        const text = await res.text();
+        showToast(text || 'エラーが発生しました', 'error');
+        return;
+    }
+
+    const result = await res.json();
+    if (result.type) {
+      handleServerMessage(result);
+    }
+  } catch (err) {
+    console.error('APIリクエストエラー:', err);
+    showToast('通信エラーが発生しました', 'error');
   }
 }
 
@@ -1255,6 +1285,7 @@ function handleServerMessage(msg) {
       State.rules = msg.rules || {};
       State.isHost = msg.hostId === State.myId;
       State.sessionRound = 0;
+      initPusher(State.roomId, State.myId);
       showScreen('waiting');
       updateWaitingUI(msg);
       break;

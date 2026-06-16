@@ -1,0 +1,9 @@
+name = "daifugo"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "daifugo-db"
+database_id = "17d3db0f-80e2-4398-89a7-70b47c3fc253"
