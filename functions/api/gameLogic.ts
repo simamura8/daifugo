@@ -250,7 +250,11 @@ export function isStronger(playCards: any[], fieldCards: any[], revolution: bool
 
   if (playType.type === 'single' && playCards[0].rank === 0) return true;
 
-  const effectiveRevolution = revolution !== elevenBack;
+  // 革命状態とイレブンバック状態を確実にbooleanに変換して排他的論理和をとる。
+  // 革命中(true)にイレブンバック(true)が起きると、逆転の逆転で通常状態(false)に戻り、JよりQの方が強くなります。
+  const isRev = !!revolution;
+  const isElv = !!elevenBack;
+  const effectiveRevolution = isRev !== isElv;
 
   if (playType.type === 'stairs') {
     const playStr = cardStrength(playType.topRank, effectiveRevolution);
